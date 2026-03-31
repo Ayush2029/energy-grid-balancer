@@ -1,0 +1,17 @@
+name: energy-grid-balancer
+description: Real-world energy grid balancing simulation
+entrypoint: server.app:app
+
+tasks:
+  - id: easy
+    description: Basic supply-demand matching
+
+  - id: medium
+    description: Handle fluctuating demand
+
+  - id: hard
+    description: Optimize battery + grid usage
+
+observation_space: Observation
+action_space: Action
+reward_space: Reward

@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚡ Energy Grid Balancer — OpenEnv</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0e1a;
+  --surface: #0f1526;
+  --surface2: #141c35;
+  --border: rgba(99,179,237,0.12);
+  --accent: #00d4ff;
+  --accent2: #7c3aed;
+  --solar: #fbbf24;
+  --wind: #34d399;
+  --demand: #f87171;
+  --battery: #60a5fa;
+  --text: #e2e8f0;
+  --muted: #64748b;
+  --success: #10b981;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+  --mono: 'Space Mono', monospace;
+  --sans: 'DM Sans', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Grid bg pattern */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Ambient glow */
+body::after {
+  content: '';
+  position: fixed;
+  top: -200px; left: 50%;
+  transform: translateX(-50%);
+  width: 800px; height: 400px;
+  background: radial-gradient(ellipse, rgba(0,212,255,0.06) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* ── Header */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-icon {
+  width: 44px; height: 44px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  box-shadow: 0 0 24px rgba(0,212,255,0.3);
+}
+
+.logo-text h1 {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--text);
+}
+
+.logo-text p {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.header-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── Task selector */
+.task-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.task-btn {
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.05em;
+}
+
+.task-btn:hover { border-color: var(--accent); color: var(--accent); }
+.task-btn.active {
+  background: rgba(0,212,255,0.1);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 12px rgba(0,212,255,0.15);
+}
+
+.task-btn.easy.active { color: var(--success); border-color: var(--success); background: rgba(16,185,129,0.1); }
+.task-btn.medium.active { color: var(--warn); border-color: var(--warn); background: rgba(245,158,11,0.1); }
+.task-btn.hard.active { color: var(--danger); border-color: var(--danger); background: rgba(239,68,68,0.1); }
+
+.diff-badge {
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  font-weight: 700;
+}
+.diff-easy { background: rgba(16,185,129,0.2); color: var(--success); }
+.diff-medium { background: rgba(245,158,11,0.2); color: var(--warn); }
+.diff-hard { background: rgba(239,68,68,0.2); color: var(--danger); }
+
+.start-btn {
+  padding: 8px 24px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.05em;
+  box-shadow: 0 4px 16px rgba(0,212,255,0.2);
+}
+
+.start-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,212,255,0.3); }
+.start-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* ── Main grid layout */
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  grid-template-rows: auto auto auto;
+  gap: 16px;
+}
+
+/* ── Cards */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,212,255,0.3), transparent);
+}
+
+.card-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-title .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+}
+
+/* ── Power flow visualization */
+.power-flow {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.flow-chart {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 20px 0;
+  gap: 8px;
+}
+
+.flow-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.flow-icon {
+  width: 64px; height: 64px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  position: relative;
+}
+
+.flow-icon.solar { background: rgba(251,191,36,0.15); border: 1px solid rgba(251,191,36,0.3); }
+.flow-icon.wind { background: rgba(52,211,153,0.15); border: 1px solid rgba(52,211,153,0.3); }
+.flow-icon.battery { background: rgba(96,165,250,0.15); border: 1px solid rgba(96,165,250,0.3); }
+.flow-icon.demand { background: rgba(248,113,113,0.15); border: 1px solid rgba(248,113,113,0.3); }
+.flow-icon.grid { background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.3); }
+
+.flow-label {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--mono);
+  text-align: center;
+}
+
+.flow-value {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.flow-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.arrow-line {
+  height: 2px;
+  width: 100%;
+  background: var(--border);
+  position: relative;
+  transition: background 0.3s;
+}
+
+.arrow-line.active-solar { background: linear-gradient(90deg, var(--solar), transparent); }
+.arrow-line.active-wind { background: linear-gradient(90deg, var(--wind), transparent); }
+.arrow-line.active-sell { background: linear-gradient(90deg, var(--accent2), transparent); }
+.arrow-line.active-charge { background: linear-gradient(90deg, var(--battery), transparent); }
+
+.arrow-kw {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+}
+
+/* ── KPI row */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+}
+
+.kpi-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.kpi-value {
+  font-family: var(--mono);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.kpi-unit {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+/* ── Action panel */
+.action-panel {
+  grid-column: 2;
+  grid-row: 1 / 3;
+}
+
+.action-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.action-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--surface2);
+}
+
+.action-card:hover { border-color: var(--accent); transform: translateX(2px); }
+.action-card.selected { border-color: var(--accent); background: rgba(0,212,255,0.08); }
+
+.action-name {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-desc {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.magnitude-row {
+  margin-bottom: 16px;
+}
+
+.magnitude-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.magnitude-slider {
+  width: 100%;
+  -webkit-appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface2);
+  outline: none;
+}
+
+.magnitude-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(0,212,255,0.5);
+}
+
+.dispatch-btn {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.05em;
+  box-shadow: 0 4px 16px rgba(0,212,255,0.2);
+}
+
+.dispatch-btn:hover { transform: translateY(-1px); }
+.dispatch-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+/* ── Battery gauge */
+.battery-gauge {
+  margin-top: 16px;
+}
+
+.gauge-bar {
+  height: 12px;
+  background: var(--surface2);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.gauge-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.5s ease, background 0.3s;
+}
+
+/* ── Frequency meter */
+.freq-meter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.freq-value {
+  font-family: var(--mono);
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.freq-status {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: var(--mono);
+}
+
+.freq-ok { background: rgba(16,185,129,0.2); color: var(--success); }
+.freq-warn { background: rgba(245,158,11,0.2); color: var(--warn); }
+.freq-danger { background: rgba(239,68,68,0.2); color: var(--danger); }
+
+/* ── History chart */
+.history-chart {
+  grid-column: 1;
+  grid-row: 3;
+}
+
+.chart-area {
+  height: 160px;
+  position: relative;
+  overflow: hidden;
+}
+
+canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ── Score panel */
+.score-panel {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+.score-big {
+  font-family: var(--mono);
+  font-size: 48px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1;
+  margin: 16px 0;
+}
+
+.score-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.score-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.score-key {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  flex: 1;
+}
+
+.score-bar-bg {
+  flex: 2;
+  height: 4px;
+  background: var(--surface2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.score-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: width 0.5s;
+}
+
+.score-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+  min-width: 40px;
+  text-align: right;
+}
+
+/* ── Reward log */
+.reward-log {
+  margin-top: 16px;
+  max-height: 120px;
+  overflow-y: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.log-entry {
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  display: flex;
+  justify-content: space-between;
+}
+
+.log-pos { color: var(--success); }
+.log-neg { color: var(--danger); }
+
+/* ── Step progress */
+.step-progress {
+  height: 3px;
+  background: var(--surface2);
+  border-radius: 2px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.step-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  border-radius: 2px;
+  transition: width 0.3s;
+}
+
+/* ── Empty state */
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--muted);
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-title {
+  font-family: var(--mono);
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+/* ── Responsive */
+@media (max-width: 900px) {
+  .main-grid { grid-template-columns: 1fr; }
+  .action-panel { grid-column: 1; grid-row: auto; }
+  .score-panel { grid-column: 1; grid-row: auto; }
+  .history-chart { grid-row: auto; }
+  .kpi-row { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ── Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── Animations */
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-in { animation: slideIn 0.3s ease forwards; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">⚡</div>
+      <div class="logo-text">
+        <h1>ENERGY GRID BALANCER</h1>
+        <p>OpenEnv · Real-World Agent Environment</p>
+      </div>
+    </div>
+    <div class="header-status">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">CONNECTING...</span>
+    </div>
+  </header>
+
+  <!-- Task bar -->
+  <div class="task-bar">
+    <button class="task-btn easy" data-task="easy" onclick="selectTask('easy')">
+      EASY <span class="diff-badge diff-easy">8h</span>
+    </button>
+    <button class="task-btn medium" data-task="medium" onclick="selectTask('medium')">
+      MEDIUM <span class="diff-badge diff-medium">24h</span>
+    </button>
+    <button class="task-btn hard" data-task="hard" onclick="selectTask('hard')">
+      HARD <span class="diff-badge diff-hard">72h</span>
+    </button>
+    <button class="start-btn" id="startBtn" onclick="startEpisode()">▶ START EPISODE</button>
+    <button class="start-btn" id="autoBtn" onclick="toggleAuto()" style="background: linear-gradient(135deg,#7c3aed,#db2777); display:none">⚡ AUTO AGENT</button>
+  </div>
+
+  <!-- Step progress -->
+  <div class="step-progress">
+    <div class="step-fill" id="stepFill" style="width:0%"></div>
+  </div>
+
+  <!-- Main layout -->
+  <div class="main-grid">
+
+    <!-- Power flow -->
+    <div class="card power-flow" id="powerFlowCard">
+      <div class="card-title">
+        <div class="dot" style="background:var(--accent)"></div>
+        REAL-TIME POWER FLOW
+        <span style="margin-left:auto;font-size:11px;color:var(--muted)" id="simTime">—</span>
+      </div>
+      <div id="emptyFlow" class="empty-state">
+        <div class="empty-icon">🌤️</div>
+        <div class="empty-title">Select a task and start episode</div>
+        <p style="font-size:12px">The agent will observe real-time solar, wind, and demand signals</p>
+      </div>
+      <div id="flowViz" style="display:none">
+        <div class="flow-chart">
+          <div class="flow-node">
+            <div class="flow-icon solar">☀️</div>
+            <div class="flow-value" id="solarKw" style="color:var(--solar)">— kW</div>
+            <div class="flow-label">SOLAR</div>
+          </div>
+          <div class="flow-arrow">
+            <div class="arrow-line" id="solarArrow"></div>
+          </div>
+          <div class="flow-node">
+            <div class="flow-icon wind">🌬️</div>
+            <div class="flow-value" id="windKw" style="color:var(--wind)">— kW</div>
+            <div class="flow-label">WIND</div>
+          </div>
+          <div class="flow-arrow">
+            <div class="arrow-line" id="windArrow"></div>
+          </div>
+          <div class="flow-node" style="transform:scale(1.1)">
+            <div class="flow-icon" style="background:rgba(0,212,255,0.15);border:2px solid var(--accent);font-size:22px">⚡</div>
+            <div class="flow-value" id="netKw" style="color:var(--accent)">— kW</div>
+            <div class="flow-label">NET</div>
+          </div>
+          <div class="flow-arrow">
+            <div class="arrow-line" id="demandArrow"></div>
+          </div>
+          <div class="flow-node">
+            <div class="flow-icon demand">🏢</div>
+            <div class="flow-value" id="demandKw" style="color:var(--demand)">— kW</div>
+            <div class="flow-label">DEMAND</div>
+          </div>
+          <div class="flow-arrow">
+            <div class="arrow-line" id="battArrow"></div>
+          </div>
+          <div class="flow-node">
+            <div class="flow-icon battery">🔋</div>
+            <div class="flow-value" id="battSoc" style="color:var(--battery)">—%</div>
+            <div class="flow-label">BATTERY</div>
+          </div>
+        </div>
+        <!-- Grid frequency -->
+        <div style="margin-top:8px; padding-top:16px; border-top:1px solid var(--border)">
+          <div class="card-title" style="margin-bottom:8px">
+            <div class="dot" style="background:var(--accent2)"></div>
+            GRID FREQUENCY
+          </div>
+          <div class="freq-meter">
+            <div class="freq-value" id="freqValue">50.00</div>
+            <div>Hz</div>
+            <div class="freq-status freq-ok" id="freqStatus">NOMINAL</div>
+            <div style="margin-left:auto; font-size:12px; color:var(--muted)">
+              Stability: <span id="stabilityScore" style="color:var(--accent)">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Panel -->
+    <div class="card action-panel">
+      <div class="card-title">
+        <div class="dot" style="background:var(--accent2)"></div>
+        DISPATCH CONTROL
+      </div>
+
+      <div class="action-btns">
+        <div class="action-card selected" data-action="charge_battery" onclick="selectAction('charge_battery')">
+          <div class="action-name">🔋 <span style="color:var(--battery)">CHARGE BATTERY</span></div>
+          <div class="action-desc">Store surplus renewable energy in battery for later use</div>
+        </div>
+        <div class="action-card" data-action="sell_to_grid" onclick="selectAction('sell_to_grid')">
+          <div class="action-name">📤 <span style="color:var(--accent2)">SELL TO GRID</span></div>
+          <div class="action-desc">Export surplus power to utility grid for revenue</div>
+        </div>
+        <div class="action-card" data-action="curtail_power" onclick="selectAction('curtail_power')">
+          <div class="action-name">✂️ <span style="color:var(--warn)">CURTAIL POWER</span></div>
+          <div class="action-desc">Safely reduce generation to prevent overload</div>
+        </div>
+        <div class="action-card" data-action="hold" onclick="selectAction('hold')">
+          <div class="action-name">⏸ <span style="color:var(--muted)">HOLD</span></div>
+          <div class="action-desc">No active dispatch, maintain current state</div>
+        </div>
+      </div>
+
+      <div class="magnitude-row">
+        <div class="magnitude-label">
+          <span>MAGNITUDE</span>
+          <span id="magValue">0.75</span>
+        </div>
+        <input type="range" class="magnitude-slider" id="magnitudeSlider"
+          min="0" max="1" step="0.05" value="0.75"
+          oninput="document.getElementById('magValue').textContent=parseFloat(this.value).toFixed(2)">
+      </div>
+
+      <button class="dispatch-btn" id="dispatchBtn" onclick="dispatchAction()" disabled>
+        DISPATCH ACTION
+      </button>
+
+      <!-- Battery gauge -->
+      <div class="battery-gauge">
+        <div class="card-title" style="margin-top:16px;margin-bottom:8px">
+          <div class="dot" style="background:var(--battery)"></div>
+          BATTERY STATE
+        </div>
+        <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:4px">
+          <span>SoC</span>
+          <span id="battDetail">—</span>
+        </div>
+        <div class="gauge-bar">
+          <div class="gauge-fill" id="battGauge" style="width:50%;background:var(--battery)"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);font-family:var(--mono)">
+          <span>MIN 10%</span>
+          <span>SWEET 30–80%</span>
+          <span>MAX 95%</span>
+        </div>
+      </div>
+
+      <!-- Prices -->
+      <div style="margin-top:16px;display:flex;gap:12px">
+        <div style="flex:1;background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted)">BUY PRICE</div>
+          <div style="font-family:var(--mono);font-size:18px;color:var(--danger)" id="buyPrice">—</div>
+          <div style="font-size:10px;color:var(--muted)">$/kWh</div>
+        </div>
+        <div style="flex:1;background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted)">SELL PRICE</div>
+          <div style="font-family:var(--mono);font-size:18px;color:var(--success)" id="sellPrice">—</div>
+          <div style="font-size:10px;color:var(--muted)">$/kWh</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI row -->
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Total Cost</div>
+        <div class="kpi-value" id="kpiCost" style="color:var(--danger)">$0.00</div>
+        <div class="kpi-unit">USD</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Curtailed</div>
+        <div class="kpi-value" id="kpiCurtail" style="color:var(--warn)">0.0</div>
+        <div class="kpi-unit">kWh wasted</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Sold to Grid</div>
+        <div class="kpi-value" id="kpiSold" style="color:var(--success)">0.0</div>
+        <div class="kpi-unit">kWh exported</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Carbon</div>
+        <div class="kpi-value" id="kpiCarbon" style="color:var(--muted)">—</div>
+        <div class="kpi-unit">gCO₂/kWh</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Step</div>
+        <div class="kpi-value" id="kpiStep" style="color:var(--accent)">0</div>
+        <div class="kpi-unit" id="kpiStepMax">/ 0</div>
+      </div>
+    </div>
+
+    <!-- History chart -->
+    <div class="card history-chart">
+      <div class="card-title">
+        <div class="dot" style="background:var(--solar)"></div>
+        GENERATION & DEMAND HISTORY
+        <span style="margin-left:auto;display:flex;gap:12px;font-size:10px">
+          <span style="color:var(--solar)">■ Solar</span>
+          <span style="color:var(--wind)">■ Wind</span>
+          <span style="color:var(--demand)">■ Demand</span>
+          <span style="color:var(--battery)">■ Battery SoC</span>
+        </span>
+      </div>
+      <div class="chart-area">
+        <canvas id="historyCanvas"></canvas>
+      </div>
+    </div>
+
+    <!-- Score panel -->
+    <div class="card score-panel">
+      <div class="card-title">
+        <div class="dot" style="background:var(--success)"></div>
+        EPISODE SCORE
+      </div>
+      <div class="score-big" id="scoreBig" style="color:var(--muted)">—</div>
+      <div class="score-breakdown" id="scoreBreakdown"></div>
+
+      <div class="reward-log" id="rewardLog">
+        <div style="text-align:center;padding:8px;color:var(--muted);font-size:11px">
+          Reward log will appear here...
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── State
+const API = '';
+let sessionId = null;
+let currentTask = 'easy';
+let obs = null;
+let historyData = { solar:[], wind:[], demand:[], soc:[], rewards:[] };
+let autoMode = false;
+let autoInterval = null;
+let selectedAction = 'charge_battery';
+let episodeActive = false;
+let episodeDone = false;
+
+// ── Canvas
+const canvas = document.getElementById('historyCanvas');
+const ctx = canvas.getContext('2d');
+
+// ── Init
+window.onload = async () => {
+  selectTask('easy');
+  await checkHealth();
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+};
+
+function resizeCanvas() {
+  canvas.width = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+  drawChart();
+}
+
+async function checkHealth() {
+  try {
+    const r = await fetch(`${API}/health`);
+    if (r.ok) {
+      document.getElementById('statusDot').style.background = 'var(--success)';
+      document.getElementById('statusText').textContent = 'API ONLINE';
+    }
+  } catch {
+    document.getElementById('statusText').textContent = 'API OFFLINE';
+    document.getElementById('statusDot').style.background = 'var(--danger)';
+  }
+}
+
+function selectTask(taskId) {
+  currentTask = taskId;
+  document.querySelectorAll('.task-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`[data-task="${taskId}"]`).classList.add('active');
+}
+
+function selectAction(actionType) {
+  selectedAction = actionType;
+  document.querySelectorAll('.action-card').forEach(c => c.classList.remove('selected'));
+  document.querySelector(`[data-action="${actionType}"]`).classList.add('selected');
+}
+
+async function startEpisode() {
+  if (autoInterval) { clearInterval(autoInterval); autoInterval = null; autoMode = false; }
+
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('startBtn').textContent = '⏳ STARTING...';
+
+  try {
+    const r = await fetch(`${API}/reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task_id: currentTask })
+    });
+    const data = await r.json();
+    sessionId = data.session_id;
+    obs = data.observation;
+    episodeActive = true;
+    episodeDone = false;
+
+    historyData = { solar:[], wind:[], demand:[], soc:[], rewards:[] };
+    document.getElementById('rewardLog').innerHTML = '';
+    document.getElementById('scoreBreakdown').innerHTML = '';
+    document.getElementById('scoreBig').textContent = '—';
+
+    document.getElementById('emptyFlow').style.display = 'none';
+    document.getElementById('flowViz').style.display = 'block';
+    document.getElementById('dispatchBtn').disabled = false;
+    document.getElementById('autoBtn').style.display = '';
+
+    updateUI(obs, null);
+  } catch(e) {
+    alert('Failed to start episode: ' + e.message);
+  }
+
+  document.getElementById('startBtn').disabled = false;
+  document.getElementById('startBtn').textContent = '↺ RESTART';
+}
+
+async function dispatchAction() {
+  if (!sessionId || episodeDone) return;
+
+  const action = {
+    action_type: selectedAction,
+    magnitude: parseFloat(document.getElementById('magnitudeSlider').value)
+  };
+
+  try {
+    const r = await fetch(`${API}/step`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId, action })
+    });
+    const data = await r.json();
+    obs = data.observation;
+
+    // Update history
+    historyData.solar.push(obs.solar_output_kw);
+    historyData.wind.push(obs.wind_output_kw);
+    historyData.demand.push(obs.building_demand_kw);
+    historyData.soc.push(obs.battery_soc_pct);
+    historyData.rewards.push(data.reward.total);
+
+    updateUI(obs, data.reward);
+    addRewardLog(obs.step, action.action_type, data.reward.total);
+    drawChart();
+
+    if (data.done) {
+      episodeDone = true;
+      document.getElementById('dispatchBtn').disabled = true;
+      if (autoInterval) { clearInterval(autoInterval); autoInterval = null; }
+      await gradeEpisode();
+    }
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+function toggleAuto() {
+  autoMode = !autoMode;
+  const btn = document.getElementById('autoBtn');
+  if (autoMode) {
+    btn.textContent = '⏹ STOP AUTO';
+    btn.style.background = 'linear-gradient(135deg,#ef4444,#dc2626)';
+    autoInterval = setInterval(autoStep, 400);
+  } else {
+    btn.textContent = '⚡ AUTO AGENT';
+    btn.style.background = 'linear-gradient(135deg,#7c3aed,#db2777)';
+    clearInterval(autoInterval);
+    autoInterval = null;
+  }
+}
+
+function autoStep() {
+  if (!obs || episodeDone) {
+    if (autoInterval) clearInterval(autoInterval);
+    return;
+  }
+  // Rule-based agent
+  const net = obs.net_power_kw;
+  const soc = obs.battery_soc_pct;
+  const hour = obs.hour_of_day;
+  const sellPrice = obs.grid_sell_price;
+
+  let action, mag;
+  if (net > 10 && soc < 80 && hour < 16) {
+    action = 'charge_battery'; mag = Math.min(1.0, net/50);
+  } else if (net > 10 && soc >= 80 && sellPrice > 0.15) {
+    action = 'sell_to_grid'; mag = 0.8;
+  } else if (net > 5 && soc >= 88) {
+    action = 'curtail_power'; mag = 0.6;
+  } else {
+    action = 'hold'; mag = 0.5;
+  }
+
+  selectAction(action);
+  document.getElementById('magnitudeSlider').value = mag;
+  document.getElementById('magValue').textContent = mag.toFixed(2);
+  dispatchAction();
+}
+
+function updateUI(obs, reward) {
+  // Flow viz
+  document.getElementById('solarKw').textContent = obs.solar_output_kw.toFixed(1) + ' kW';
+  document.getElementById('windKw').textContent = obs.wind_output_kw.toFixed(1) + ' kW';
+  document.getElementById('demandKw').textContent = obs.building_demand_kw.toFixed(1) + ' kW';
+  document.getElementById('battSoc').textContent = obs.battery_soc_pct.toFixed(1) + '%';
+
+  const netKw = obs.net_power_kw;
+  const netEl = document.getElementById('netKw');
+  netEl.textContent = (netKw >= 0 ? '+' : '') + netKw.toFixed(1) + ' kW';
+  netEl.style.color = netKw >= 0 ? 'var(--success)' : 'var(--danger)';
+
+  // Arrows
+  document.getElementById('solarArrow').className = 'arrow-line' + (obs.solar_output_kw > 5 ? ' active-solar' : '');
+  document.getElementById('windArrow').className = 'arrow-line' + (obs.wind_output_kw > 5 ? ' active-wind' : '');
+
+  // Frequency
+  const freq = obs.grid_frequency_hz;
+  document.getElementById('freqValue').textContent = freq.toFixed(3);
+  const freqDev = Math.abs(freq - 50.0);
+  const freqEl = document.getElementById('freqStatus');
+  if (freqDev < 0.1) { freqEl.className = 'freq-status freq-ok'; freqEl.textContent = 'NOMINAL'; }
+  else if (freqDev < 0.2) { freqEl.className = 'freq-status freq-warn'; freqEl.textContent = 'WARNING'; }
+  else { freqEl.className = 'freq-status freq-danger'; freqEl.textContent = 'CRITICAL'; }
+
+  document.getElementById('stabilityScore').textContent = obs.grid_stability_score.toFixed(3);
+
+  // Battery gauge
+  const soc = obs.battery_soc_pct;
+  const gaugeEl = document.getElementById('battGauge');
+  gaugeEl.style.width = soc + '%';
+  if (soc < 20) gaugeEl.style.background = 'var(--danger)';
+  else if (soc < 30 || soc > 85) gaugeEl.style.background = 'var(--warn)';
+  else gaugeEl.style.background = 'var(--battery)';
+
+  document.getElementById('battDetail').textContent =
+    `${obs.battery_energy_kwh.toFixed(1)} / ${obs.battery_max_kwh} kWh`;
+
+  // Prices
+  document.getElementById('buyPrice').textContent = '$' + obs.grid_buy_price.toFixed(3);
+  document.getElementById('sellPrice').textContent = '$' + obs.grid_sell_price.toFixed(3);
+
+  // KPIs
+  document.getElementById('kpiCost').textContent = '$' + obs.cumulative_cost.toFixed(2);
+  document.getElementById('kpiCurtail').textContent = obs.cumulative_curtailed_kwh.toFixed(1);
+  document.getElementById('kpiSold').textContent = obs.cumulative_sold_kwh.toFixed(1);
+  document.getElementById('kpiCarbon').textContent = obs.carbon_intensity.toFixed(0);
+  document.getElementById('kpiStep').textContent = obs.step;
+  document.getElementById('kpiStepMax').textContent = '/ ' + obs.max_steps;
+
+  // Time
+  const h = Math.floor(obs.hour_of_day);
+  const m = Math.round((obs.hour_of_day - h) * 60);
+  document.getElementById('simTime').textContent =
+    `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')} · ${obs.season.toUpperCase()} · Step ${obs.step}/${obs.max_steps}`;
+
+  // Progress bar
+  document.getElementById('stepFill').style.width = (obs.step / obs.max_steps * 100) + '%';
+}
+
+function addRewardLog(step, action, reward) {
+  const log = document.getElementById('rewardLog');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  const cls = reward >= 0 ? 'log-pos' : 'log-neg';
+  entry.innerHTML = `<span>Step ${step} · ${action.replace('_',' ')}</span><span class="${cls}">${reward >= 0 ? '+' : ''}${reward.toFixed(3)}</span>`;
+  log.insertBefore(entry, log.firstChild);
+  if (log.children.length > 30) log.removeChild(log.lastChild);
+}
+
+async function gradeEpisode() {
+  try {
+    const r = await fetch(`${API}/grade`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId })
+    });
+    const data = await r.json();
+
+    const score = data.score;
+    const scoreEl = document.getElementById('scoreBig');
+    scoreEl.textContent = (score * 100).toFixed(1);
+    scoreEl.style.color = score >= 0.85 ? 'var(--success)' : score >= 0.6 ? 'var(--warn)' : 'var(--danger)';
+
+    const bd = document.getElementById('scoreBreakdown');
+    bd.innerHTML = '';
+
+    const metrics = [
+      ['curtailment_score', 'Curtailment'],
+      ['cost_efficiency_score', 'Cost Efficiency'],
+      ['grid_stability_score', 'Grid Stability'],
+      ['battery_health_score', 'Battery Health'],
+      ['completion_score', 'Completion'],
+    ];
+
+    metrics.forEach(([key, label]) => {
+      const val = data.breakdown[key] || 0;
+      const row = document.createElement('div');
+      row.className = 'score-row';
+      row.innerHTML = `
+        <span class="score-key">${label}</span>
+        <div class="score-bar-bg">
+          <div class="score-bar-fill" style="width:${val*100}%;background:${val>0.7?'var(--success)':val>0.4?'var(--warn)':'var(--danger)'}"></div>
+        </div>
+        <span class="score-num">${(val*100).toFixed(1)}%</span>
+      `;
+      bd.appendChild(row);
+    });
+  } catch(e) { console.error(e); }
+}
+
+function drawChart() {
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  if (!historyData.solar.length) return;
+
+  const N = historyData.solar.length;
+  const pad = { t: 10, r: 10, b: 20, l: 40 };
+  const W = w - pad.l - pad.r;
+  const H = h - pad.t - pad.b;
+
+  const allVals = [...historyData.solar, ...historyData.wind, ...historyData.demand];
+  const maxKw = Math.max(...allVals, 10);
+
+  function xPos(i) { return pad.l + (i / Math.max(N-1, 1)) * W; }
+  function yPosKw(v) { return pad.t + H - (v / maxKw) * H; }
+  function yPosSoc(v) { return pad.t + H - (v / 100) * H; }
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(99,179,237,0.06)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + (i / 4) * H;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+  }
+
+  // Draw series
+  const series = [
+    { data: historyData.solar, color: '#fbbf24', label: 'Solar', yFn: yPosKw },
+    { data: historyData.wind, color: '#34d399', label: 'Wind', yFn: yPosKw },
+    { data: historyData.demand, color: '#f87171', label: 'Demand', yFn: yPosKw },
+    { data: historyData.soc, color: 'rgba(96,165,250,0.5)', label: 'SoC%', yFn: yPosSoc, dashed: true },
+  ];
+
+  series.forEach(s => {
+    if (!s.data.length) return;
+    ctx.beginPath();
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = s.dashed ? 1.5 : 2;
+    if (s.dashed) { ctx.setLineDash([4, 3]); } else { ctx.setLineDash([]); }
+
+    s.data.forEach((v, i) => {
+      const x = xPos(i), y = s.yFn(v);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  });
+  ctx.setLineDash([]);
+
+  // Y labels
+  ctx.fillStyle = 'rgba(100,116,139,0.8)';
+  ctx.font = '10px Space Mono, monospace';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 2; i++) {
+    const v = maxKw * (1 - i/2);
+    ctx.fillText(v.toFixed(0), pad.l - 4, pad.t + (i/2) * H + 4);
+  }
+}
+</script>
+</body>
+</html>
