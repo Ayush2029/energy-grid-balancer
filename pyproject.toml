@@ -40,4 +40,4 @@ dev-dependencies = [
 ]
 
 [project.scripts]
-Server = "server.app:main"
+server = "server.app:main"
