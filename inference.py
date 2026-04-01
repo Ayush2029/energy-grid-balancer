@@ -348,6 +348,7 @@ def wait_for_server(max_retries: int = 20, delay: float = 3.0):
 
 def run_task(task_id: str) -> dict:
     print(f"\n{'═'*62}\n  TASK: {task_id.upper()}\n{'═'*62}")
+    print(f"[START] task={task_id}")
     r = requests.post(
         f"{ENV_BASE_URL}/reset",
         json={"task_id": task_id, "seed": 42},
@@ -380,6 +381,7 @@ def run_task(task_id: str) -> dict:
         obs = sd["observation"]; done = sd["done"]
         total_r += sd["reward"]["total"]; step += 1
         tracker.update(obs, action)
+        print(f"[STEP] task={task_id} step={step} reward={sd['reward']['total']:.4f} action={action['action_type']}")
 
         if step % log_every == 0 or done:
             est = tracker.live_score_estimate(obs)
@@ -405,6 +407,7 @@ def run_task(task_id: str) -> dict:
         warn = warn or (" ⚠" if (k=="cost_efficiency_score" and float(v)<0.75) else "")
         print(f"       {k:<34s}: {v}{warn}")
 
+    print(f"[END] task={task_id} score={score:.4f}")
     return {"task_id": task_id, "score": score, "breakdown": bd,
             "total_reward": round(total_r, 4), "steps_completed": step,
             "llm_calls": llm_calls, "feedback": gd.get("feedback", "")}
