@@ -144,7 +144,10 @@ if not _USING_OPENENV_CORE:
     @app.get("/state")
     async def get_state(session_id: str = ""):
         env = _get_env(session_id)
-        return env.state().model_dump()
+        return {
+            "session_id": session_id,
+            "observation": env.state.model_dump()
+        }
 
     @app.post("/grade")
     async def grade(body: dict):
