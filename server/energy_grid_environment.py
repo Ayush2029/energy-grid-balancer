@@ -111,9 +111,8 @@ def grade_episode(task_id: str, history: List[Dict]) -> Dict[str, Any]:
     soc_list = [h.get("battery_soc", 50) for h in history]
     bs = sum(1 for s in soc_list if 20 <= s <= 90) / max(n, 1)
     cmp = n / mx
-    sc = round(max(0.0, min(1.0,
-        w["curtail"] * cs + w["cost"] * es + w["stab"] * ss +
-        w["batt"] * bs + w["comp"] * cmp)), 4)
+    raw_sc = w["curtail"] * cs + w["cost"] * es + w["stab"] * ss + w["batt"] * bs + w["comp"] * cmp
+    sc = round(max(0.0001, min(0.9999, raw_sc)), 4)
 
     gl = "A" if sc >= 0.85 else "B" if sc >= 0.70 else "C" if sc >= 0.55 else "D"
     return {
