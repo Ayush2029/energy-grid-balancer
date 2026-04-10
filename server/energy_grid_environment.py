@@ -102,15 +102,15 @@ def grade_episode(task_id: str, history: List[Dict]) -> Dict[str, Any]:
     cut = sum(h.get("curtailed_kw", 0) * ts_h for h in history)
     gen = sum((h.get("solar_kw", 0) + h.get("wind_kw", 0)) * ts_h for h in history)
     cr = cut / max(gen, 1)
-    cs = max(0.0, 1.0 - cr * 2)
+    cs = max(0.01, min(0.99, 1.0 - cr * 2))
     cost = sum(h.get("cost", 0) for h in history)
     bl = n * 0.25 * ts_h * cfg["building_max_demand_kw"] * 0.35 
-    es = max(0.0, min(1.0, 1.0 - cost / max(bl, 1)))
+    es = max(0.01, min(0.99, 1.0 - cost / max(bl, 1)))
     fv = sum(1 for h in history if abs(h.get("freq_hz", 50) - 50) > 0.2)
-    ss = max(0.0, 1.0 - fv / max(n, 1))
+    ss = max(0.01, min(0.99, 1.0 - fv / max(n, 1)))
     soc_list = [h.get("battery_soc", 50) for h in history]
-    bs = sum(1 for s in soc_list if 20 <= s <= 90) / max(n, 1)
-    cmp = n / mx
+    bs = max(0.01, min(0.99, sum(1 for s in soc_list if 20 <= s <= 90) / max(n, 1)))
+    cmp = max(0.01, min(0.99, n / mx))
     raw_sc = w["curtail"] * cs + w["cost"] * es + w["stab"] * ss + w["batt"] * bs + w["comp"] * cmp
     sc = round(max(0.0001, min(0.9999, raw_sc)), 4)
 
@@ -280,7 +280,8 @@ class EnergyGridEnvironment(Environment):
             penalty
         )
         raw_reward = max(-2.0, min(2.0, raw_reward))
-        total_reward = float((raw_reward + 2.0) / 4.0)
+        raw_total = float((raw_reward + 2.0) / 4.0)
+        total_reward = max(0.01, min(0.99, raw_total))
         self._last_action = at
         self._step_count += 1
         self._current_time += timedelta(minutes=self._cfg["time_step_minutes"])
