@@ -14,7 +14,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models import GridAction, GridObservation, GridState, GridReward
 from server.energy_grid_environment import EnergyGridEnvironment, TASKS, grade_episode
 
-# ── Try to use openenv create_app (preferred) ─────────────────────────────────
 try:
     from openenv.core.env_server import create_app
 
@@ -23,9 +22,8 @@ try:
             return EnergyGridEnvironment(task_id=task_id)
         return factory
 
-    # Default app: easy task (validators will use /reset with task_id override)
     app = create_app(
-        lambda: EnergyGridEnvironment(task_id="easy"),   # class passed as factory
+        lambda: EnergyGridEnvironment(task_id="easy"),   
         GridAction,
         GridObservation,
         env_name="energy-grid-balancer",
@@ -35,7 +33,6 @@ try:
 except ImportError:
     _USING_OPENENV_CORE = False
 
-# ── Standalone FastAPI fallback (used when openenv-core not installed) ─────────
 if not _USING_OPENENV_CORE:
     from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
     from fastapi.middleware.cors import CORSMiddleware
@@ -58,7 +55,6 @@ if not _USING_OPENENV_CORE:
         allow_headers=["*"],
     )
 
-    # ── HTTP session store ─────────────────────────────────────────────────────
     _sessions: Dict[str, EnergyGridEnvironment] = {}
     MAX_SESSIONS = 50
 
@@ -71,8 +67,6 @@ if not _USING_OPENENV_CORE:
     def _evict():
         if len(_sessions) >= MAX_SESSIONS:
             del _sessions[next(iter(_sessions))]
-
-    # ── Endpoints ──────────────────────────────────────────────────────────────
 
     @app.get("/", response_class=HTMLResponse)
     async def root():
@@ -205,7 +199,6 @@ if not _USING_OPENENV_CORE:
     async def sessions_info():
         return {"active_sessions": len(_sessions), "max_sessions": MAX_SESSIONS}
 
-    # ── WebSocket endpoint (OpenEnv spec) ──────────────────────────────────────
     @app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket):
         """
@@ -285,9 +278,6 @@ if not _USING_OPENENV_CORE:
                 await websocket.send_text(json.dumps({"error": str(e)}))
             except Exception:
                 pass
-
-
-# ── Entry point ───────────────────────────────────────────────────────────────
 
 def main():
     import uvicorn

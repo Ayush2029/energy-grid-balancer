@@ -14,7 +14,6 @@ try:
     _HAS_OPENENV = True
 except ImportError:
     _HAS_OPENENV = False
-
     class State:
         def __init__(self, episode_id="", step_count=0):
             self.episode_id = episode_id
@@ -27,18 +26,12 @@ import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from models import GridAction, GridObservation, GridState, VALID_ACTIONS
 
-
-# ── Task configurations ───────────────────────────────────────────────────────
-
 TASKS: Dict[str, Dict[str, Any]] = {
     "easy": {
         "task_id": "easy",
         "name": "Sunny Day Balancing",
         "difficulty": "easy",
-        "description": (
-            "Small commercial building with 80 kW solar on a clear summer day. "
-            "8-hour episode (48 steps × 10 min). Low volatility, predictable generation."
-        ),
+        "description": "Small commercial building with 80 kW solar on a clear summer day. 8-hour episode.",
         "episode_length_steps": 48,
         "time_step_minutes": 10,
         "battery_capacity_kwh": 100.0,
@@ -56,11 +49,7 @@ TASKS: Dict[str, Dict[str, Any]] = {
         "task_id": "medium",
         "name": "Mixed Renewables District",
         "difficulty": "medium",
-        "description": (
-            "Solar + wind district over a full 24-hour cycle. "
-            "Cloud events, wind gusts, evening demand peaks. "
-            "144 steps × 10 min."
-        ),
+        "description": "Solar + wind district over a full 24-hour cycle. Cloud events, wind gusts.",
         "episode_length_steps": 144,
         "time_step_minutes": 10,
         "battery_capacity_kwh": 150.0,
@@ -78,11 +67,7 @@ TASKS: Dict[str, Dict[str, Any]] = {
         "task_id": "hard",
         "name": "Storm Resilience Challenge",
         "difficulty": "hard",
-        "description": (
-            "Critical microgrid during a 3-day storm. "
-            "Intermittent generation, export restrictions, frequency cascades. "
-            "432 steps × 10 min."
-        ),
+        "description": "Critical microgrid during a 3-day storm. Intermittent generation, export restrictions.",
         "episode_length_steps": 432,
         "time_step_minutes": 10,
         "battery_capacity_kwh": 120.0,
@@ -91,7 +76,7 @@ TASKS: Dict[str, Dict[str, Any]] = {
         "wind_capacity_kw": 100.0,
         "building_max_demand_kw": 200.0,
         "grid_sell_enabled": True,
-        "curtailment_penalty_multiplier": 2.5,
+        "curtailment_penalty_multiplier": 2.0, 
         "volatility": 0.75,
         "seed": 777,
         "grader_weights": {"curtail": 0.20, "cost": 0.20, "stab": 0.35, "batt": 0.15, "comp": 0.10},
@@ -100,16 +85,12 @@ TASKS: Dict[str, Dict[str, Any]] = {
 
 FREQ_NOM = 50.0
 VOLT_NOM = 1.0
-CHRG_EFF = 0.94
-DSCH_EFF = 0.94
-SOC_MIN = 10.0
-SOC_MAX = 95.0
-
-
-# ── Grader ────────────────────────────────────────────────────────────────────
+CHRG_EFF = 0.98 
+DSCH_EFF = 0.98 
+SOC_MIN = 20.0  
+SOC_MAX = 90.0  
 
 def grade_episode(task_id: str, history: List[Dict]) -> Dict[str, Any]:
-    """Deterministic grader. Returns score 0.0–1.0 with full breakdown."""
     if not history:
         return {"score": 0.0, "breakdown": {}, "feedback": "No steps recorded."}
 
@@ -118,22 +99,17 @@ def grade_episode(task_id: str, history: List[Dict]) -> Dict[str, Any]:
     mx = cfg["episode_length_steps"]
     ts_h = cfg["time_step_minutes"] / 60.0
     w = cfg["grader_weights"]
-
     cut = sum(h.get("curtailed_kw", 0) * ts_h for h in history)
     gen = sum((h.get("solar_kw", 0) + h.get("wind_kw", 0)) * ts_h for h in history)
     cr = cut / max(gen, 1)
     cs = max(0.0, 1.0 - cr * 2)
-
     cost = sum(h.get("cost", 0) for h in history)
-    bl = n * 0.25 * ts_h * cfg["building_max_demand_kw"] * 0.3
+    bl = n * 0.25 * ts_h * cfg["building_max_demand_kw"] * 0.35 
     es = max(0.0, min(1.0, 1.0 - cost / max(bl, 1)))
-
     fv = sum(1 for h in history if abs(h.get("freq_hz", 50) - 50) > 0.2)
     ss = max(0.0, 1.0 - fv / max(n, 1))
-
     soc_list = [h.get("battery_soc", 50) for h in history]
     bs = sum(1 for s in soc_list if 20 <= s <= 90) / max(n, 1)
-
     cmp = n / mx
     sc = round(max(0.0, min(1.0,
         w["curtail"] * cs + w["cost"] * es + w["stab"] * ss +
@@ -153,24 +129,10 @@ def grade_episode(task_id: str, history: List[Dict]) -> Dict[str, Any]:
             "freq_violations": fv,
             "steps_completed": n,
         },
-        "feedback": (
-            f"[{gl}] Task '{task_id}' score:{sc:.3f} | "
-            f"Curtail:{cr:.1%} | Cost:${cost:.2f} | "
-            f"StabViolations:{fv}/{n} | BattHealth:{bs:.1%}"
-        ),
+        "feedback": f"[{gl}] Task '{task_id}' score:{sc:.3f} | Curtail:{cr:.1%} | Cost:${cost:.2f} | StabViolations:{fv}/{n} | BattHealth:{bs:.1%}",
     }
 
-
-# ── Environment ───────────────────────────────────────────────────────────────
-
 class EnergyGridEnvironment(Environment):
-    """
-    OpenEnv-compliant energy grid balancing environment.
-
-    Inherits from openenv.core.env_server.interfaces.Environment and
-    implements reset(), step(), and state property.
-    """
-
     def __init__(self, task_id: str = "easy"):
         if task_id not in TASKS:
             raise ValueError(f"Unknown task '{task_id}'. Choose: {list(TASKS.keys())}")
@@ -192,10 +154,7 @@ class EnergyGridEnvironment(Environment):
         start_h = 0 if task_id == "hard" else 6
         self._current_time = datetime(2024, 6, 15, start_h, 0)
 
-    # ── OpenEnv interface ─────────────────────────────────────────────────────
-
     def reset(self, seed: Optional[int] = None) -> GridObservation:
-        """Reset the environment and return the initial observation."""
         seed_val = seed if seed is not None else self._cfg["seed"]
         self._rng = random.Random(seed_val)
         self._episode_id = str(uuid4())
@@ -214,15 +173,12 @@ class EnergyGridEnvironment(Environment):
         return self._make_observation(reward=0.0)
 
     def step(self, action_dict) -> GridObservation:
-        """Execute one action and return the next observation with embedded reward."""
         if self._done:
             raise RuntimeError("Episode is done. Call reset() first.")
 
         action = GridAction(**action_dict) if isinstance(action_dict, dict) else action_dict
-
         at = action.action_type
         mag = float(action.magnitude)
-
         solar = self._solar()
         wind = self._wind()
         demand = self._demand()
@@ -230,26 +186,32 @@ class EnergyGridEnvironment(Environment):
         net = gen - demand
         buy_p, sell_p = self._prices()
         ts_h = self._cfg["time_step_minutes"] / 60.0
-
         action_rewards: Dict[str, float] = {}
         curtailed = 0.0
         sold = 0.0
         cost = 0.0
-
         if at == "charge_battery":
-            surplus = max(0.0, net)
-            headroom = min(
-                self._cfg["battery_max_rate_kw"] * mag,
-                (SOC_MAX - self._battery_soc) / 100 * self._cfg["battery_capacity_kwh"] / ts_h,
-            )
-            charged = min(surplus, headroom)
+            charge_req = self._cfg["battery_max_rate_kw"] * mag
+            headroom = (SOC_MAX - self._battery_soc) / 100 * self._cfg["battery_capacity_kwh"] / ts_h
+            charged = min(charge_req, headroom)
             self._battery_energy_kwh = min(
                 self._battery_energy_kwh + charged * ts_h * CHRG_EFF,
                 self._cfg["battery_capacity_kwh"] * SOC_MAX / 100,
             )
             self._battery_soc = self._battery_energy_kwh / self._cfg["battery_capacity_kwh"] * 100
             self._battery_soc = max(0.0, min(100.0, self._battery_soc))
-            curtailed = max(0.0, net - charged)
+            if net >= 0:
+                if charged > net:
+                    grid_imp = charged - net
+                    cost += grid_imp * ts_h * buy_p
+                    curtailed = 0.0
+                else:
+                    curtailed = max(0.0, net - charged)
+            else:
+                grid_imp = abs(net) + charged
+                cost += grid_imp * ts_h * buy_p
+                curtailed = 0.0
+                
             action_rewards["charge"] = 0.3 if charged > 0 else -0.05
 
         elif at == "sell_to_grid":
@@ -273,30 +235,28 @@ class EnergyGridEnvironment(Environment):
                 curtailed = net * 0.5
             action_rewards["hold"] = -0.05
 
-        # Auto-discharge for deficit
-        if net < 0:
+        if net < 0 and at != "charge_battery":
             deficit = abs(net)
             avail = min(
                 self._cfg["battery_max_rate_kw"],
-                (self._battery_soc - SOC_MIN) / 100 * self._cfg["battery_capacity_kwh"] / ts_h,
+                max(0.0, (self._battery_soc - SOC_MIN) / 100 * self._cfg["battery_capacity_kwh"] / ts_h)
             )
             disch = min(deficit, avail)
+            
             self._battery_energy_kwh = max(
                 self._battery_energy_kwh - disch * ts_h / DSCH_EFF,
                 self._cfg["battery_capacity_kwh"] * SOC_MIN / 100,
             )
             self._battery_soc = self._battery_energy_kwh / self._cfg["battery_capacity_kwh"] * 100
+            
             remain = deficit - disch
             if remain > 0:
                 imp = remain * ts_h
                 cost += imp * buy_p
                 action_rewards["import"] = -min(imp * buy_p / 5.0, 0.5)
 
-        # Cumulative tracking
         self._cum_curtailed += curtailed * ts_h
         self._cum_cost += max(0, cost)
-
-        # Reward components
         cpn = -(curtailed * ts_h * self._cfg["curtailment_penalty_multiplier"] * 0.05)
         fdev = self._freq_dev(curtailed, gen + demand)
         freq = FREQ_NOM + fdev
@@ -308,28 +268,25 @@ class EnergyGridEnvironment(Environment):
         srwd = stab * 0.4
         imbalance = abs(net)
         imbalance_penalty = -min(imbalance / max(demand, 1.0), 1.0) * 0.3
-
         penalty = 0.0
         if mag < 0:
             penalty -= 0.2
         if at not in VALID_ACTIONS:
             penalty -= 0.5
 
-        total_reward = max(-2.0, min(2.0,
+        raw_reward = (
             srwd + erwd + cpn + fpn + brwd +
             sum(action_rewards.values()) +
             imbalance_penalty +
             penalty
-        ))
-        total_reward = float(max(-2.0, min(2.0, total_reward)))
-
+        )
+        raw_reward = max(-2.0, min(2.0, raw_reward))
+        total_reward = float((raw_reward + 2.0) / 4.0)
         self._last_action = at
         self._step_count += 1
         self._current_time += timedelta(minutes=self._cfg["time_step_minutes"])
-        done = self._step_count >= self._cfg["episode_length_steps"] - 1
+        done = self._step_count >= self._cfg["episode_length_steps"]
         self._done = done
-
-        # Record history for grading
         self._history.append({
             "step": self._step_count,
             "action": at,
@@ -343,12 +300,10 @@ class EnergyGridEnvironment(Environment):
             "cost": cost,
             "freq_hz": freq,
         })
-
         return self._make_observation(reward=total_reward)
 
     @property
     def state(self) -> "GridState":
-        """Return the current environment state."""
         return GridState(
             episode_id=self._episode_id,
             step_count=self._step_count,
@@ -362,21 +317,13 @@ class EnergyGridEnvironment(Environment):
         )
 
     def grade(self) -> Dict[str, Any]:
-        """Run the deterministic grader over the episode history."""
         return grade_episode(self._task_id, self._history)
 
     def evaluate_task(self) -> float:
-        """
-        Lightweight task-level evaluation (0.0–1.0).
-        Required for OpenEnv task compliance.
-        """
         if not self._history:
             return 0.0
-
         result = grade_episode(self._task_id, self._history)
         return float(result.get("score", 0.0))
-
-    # ── Private helpers ───────────────────────────────────────────────────────
 
     def _make_observation(self, reward: float = 0.0) -> GridObservation:
         solar = self._solar()

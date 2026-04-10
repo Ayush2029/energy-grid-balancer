@@ -29,7 +29,6 @@ elif _PYDANTIC:
     _BASE_OBS    = BaseModel
     _BASE_STATE  = BaseModel
 else:
-    # Pure stdlib fallback
     class _StdBase:
         def __init__(self, **kwargs):
             for k, v in kwargs.items():
@@ -39,7 +38,6 @@ else:
     _BASE_ACTION = _StdBase
     _BASE_OBS    = _StdBase
     _BASE_STATE  = _StdBase
-
 
 # ── GridAction ────────────────────────────────────────────────────────────────
 
@@ -69,7 +67,6 @@ else:
             self.magnitude = max(0.0, min(1.0, float(magnitude)))
         def model_dump(self):
             return {"action_type": self.action_type, "magnitude": self.magnitude}
-
 
 # ── GridObservation ───────────────────────────────────────────────────────────
 
@@ -127,7 +124,6 @@ else:
         def model_dump(self):
             return {k: getattr(self, k) for k in _OBS_DEFAULTS}
 
-
 # ── GridState ─────────────────────────────────────────────────────────────────
 
 if _PYDANTIC:
@@ -162,11 +158,19 @@ else:
         def model_dump(self):
             return self.__dict__
 
+if _PYDANTIC:
+    class GridReward(_BASE_STATE): 
+        score:   float = Field(0.0)
+        penalty: float = Field(0.0)
+        total:   float = Field(0.0)
 
-class GridReward(BaseModel):
-    score: float
-    penalty: float
-    total: float
-
-    class Config:
-        extra = "forbid"
+        class Config:
+            extra = "forbid"
+else:
+    class GridReward(_BASE_STATE):
+        def __init__(self, score=0.0, penalty=0.0, total=0.0, **_):
+            self.score = score
+            self.penalty = penalty
+            self.total = total
+        def model_dump(self):
+            return self.__dict__

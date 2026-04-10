@@ -1,17 +1,20 @@
-name: energy-grid-balancer
-description: Real-world energy grid balancing simulation
-entrypoint: server.app:app
+version: "1.0"
+
+benchmark:
+  name: "energy-grid-balancer"
+  description: "Real-world energy grid balancing simulation"
+  environment:
+    entrypoint: "server.energy_grid_environment:EnergyGridEnvironment"
 
 tasks:
-  - id: easy
-    description: Basic supply-demand matching
+  - id: "easy"
+    name: "Sunny Day Balancing"
+    description: "Basic supply-demand matching"
 
-  - id: medium
-    description: Handle fluctuating demand
+  - id: "medium"
+    name: "Mixed Renewables District"
+    description: "Handle fluctuating demand"
 
-  - id: hard
-    description: Optimize battery + grid usage
-
-observation_space: Observation
-action_space: Action
-reward_space: Reward
+  - id: "hard"
+    name: "Storm Resilience Challenge"
+    description: "Optimize battery + grid usage"
