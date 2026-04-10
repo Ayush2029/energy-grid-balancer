@@ -339,14 +339,14 @@ Final score ∈ [0,1], based on:
 ## Baseline Performance
 
 ```json
-Average Score: 0.9459
+Average Score: 0.943
 ```
 
 | Task   | Score  |
 | ------ | ------ |
 | Easy   | 0.9999 |
-| Medium | 0.9502 |
-| Hard   | 0.8875 |
+| Medium | 0.9454 |
+| Hard   | 0.8935 |
 
 ---
 
