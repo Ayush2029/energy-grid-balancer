@@ -1,9 +1,10 @@
 ---
-title: Energy Grid Balancer 
+title: Energy Grid Balancer
 emoji: ⚡
 colorFrom: yellow
 colorTo: blue
 sdk: docker
+app_port: 7860
 pinned: false
 tags:
   - openenv
