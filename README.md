@@ -1,3 +1,20 @@
+---
+title: Energy Grid Balancer 
+emoji: ⚡
+colorFrom: yellow
+colorTo: blue
+sdk: docker
+pinned: false
+tags:
+  - openenv
+  - energy
+  - renewable
+  - reinforcement-learning
+  - agent
+  - real-world
+license: mit
+---
+
 # Energy Grid Balancer — OpenEnv RL Environment
 
 > A real-world inspired renewable energy grid simulation environment for Reinforcement Learning agents and LLM-based decision systems.
@@ -182,7 +199,7 @@ energy-grid-balancer/
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/your-repo/energy-grid-balancer.git
+git clone https://github.com/Ayush2029/energy-grid-balancer.git
 cd energy-grid-balancer
 ```
 
@@ -336,7 +353,7 @@ Average Score: 0.9459
 
 * **Ayush Dharaiya** 
 * **Harvy Doshi**
-* **Archi PaTEL**
+* **Archi Patel**
 
 ---
 
